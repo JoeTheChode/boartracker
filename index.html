@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Boar Hunt</title>
+<style>
+  :root {
+    --bg: #f4efe4; --card: #fffaf0; --ink: #2b2118; --muted: #7a6a58; --line: #e2d6c2;
+    --boar: #8a4b22; --quest: #3f6e8c; --other: #b9a27f; --bad: #b3261e; --good: #3d7a3a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b1612; --card: #241d17; --ink: #efe6d8; --muted: #a8957c; --line: #3a2f25;
+      --boar: #d08a52; --quest: #7fb0d0; --other: #8c7a60; --bad: #ef6b60; --good: #7cc076;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1b1612; --card: #241d17; --ink: #efe6d8; --muted: #a8957c; --line: #3a2f25;
+    --boar: #d08a52; --quest: #7fb0d0; --other: #8c7a60; --bad: #ef6b60; --good: #7cc076;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 Georgia, "Times New Roman", serif; }
+  main { max-width: 960px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: clamp(2.4rem, 8vw, 4.2rem); line-height: 1; margin: 0; letter-spacing: -0.02em; }
+  h2 { font-size: 1.25rem; margin: 0 0 12px; }
+  .sub { color: var(--muted); margin: 8px 0 0; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 20px; margin-top: 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; }
+  .stat b { display: block; font-size: 1.8rem; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: .9rem; }
+  .vow { display: inline-block; margin-top: 12px; padding: 4px 12px; border-radius: 999px; font-size: .95rem; border: 1px solid; }
+  .vow.ok { color: var(--good); } .vow.broken { color: var(--bad); }
+  .track { height: 14px; background: var(--line); border-radius: 7px; overflow: hidden; display: flex; }
+  .track i { display: block; height: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 10px; font-size: .9rem; color: var(--muted); }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; }
+  .bars { display: flex; align-items: flex-end; gap: 3px; height: 140px; }
+  .bars div { flex: 1; background: var(--boar); border-radius: 3px 3px 0 0; min-height: 2px; }
+  .bars div.future { background: var(--line); }
+  .axis { display: flex; justify-content: space-between; color: var(--muted); font-size: .8rem; margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; font-size: .95rem; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  th { color: var(--muted); font-weight: normal; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; }
+  .scroll { max-height: 420px; overflow: auto; }
+  .bad { color: var(--bad); }
+  .demo { background: var(--bad); color: #fff; padding: 8px 12px; border-radius: 8px; margin-bottom: 16px; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+  .two .card { margin-top: 0; }
+  @media (max-width: 640px) { .two { grid-template-columns: 1fr; } }
+  footer { color: var(--muted); font-size: .85rem; margin-top: 24px; }
+  h3 { font-size: 1rem; margin: 20px 0 10px; color: var(--muted); font-weight: normal; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+  .tile { border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--bg); }
+  .tile img, .tile .ph { display: block; width: 100%; aspect-ratio: 16 / 9; object-fit: cover; background: var(--line); }
+  .tile .ph { display: grid; place-items: center; color: var(--muted); font-size: 2rem; }
+  .tile .t { padding: 10px 12px; }
+  .tile b { display: block; }
+  .tile small { display: block; color: var(--muted); }
+  .tile p { margin: 6px 0 0; font-size: .92rem; }
+  .tile.locked { opacity: .6; }
+  tr.unhunted td { color: var(--muted); }
+</style>
+</head>
+<body>
+<main id="app"><p>Loading…</p></main>
+<script src="data.js"></script>
+<script>
+const D = window.BOAR;
+const app = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const num = n => (n || 0).toLocaleString();
+const when = t => t ? new Date(t * 1000).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '–';
+const dur = s => { s = Math.round(s || 0); const h = Math.floor(s / 3600), m = Math.floor(s % 3600 / 60); return h ? `${h} h ${m} m` : `${m} m`; };
+
+if (!D) {
+  app.innerHTML = '<h1>No data yet</h1><p class="sub">Run <code>python relay.py</code>, then type /reload in game.</p>';
+} else {
+  const toGo = (D.level - 1 + (D.xpMax ? D.xp / D.xpMax : 0)) / 59;
+  const x = D.xpSplit, xpAll = x.boars + x.quests + x.otherKills + x.other || 1;
+  const pct = v => (100 * v / xpAll).toFixed(1) + '%';
+  const perLevel = Object.fromEntries(D.levels.map(l => [l.level, l]));
+  const maxBoars = Math.max(1, ...D.levels.map(l => l.boars));
+  const broken = D.breaks.length;
+  const recent = D.kills.slice(-100).reverse();
+  const species = D.species || [], milestones = D.milestones || [];
+  const boarNames = new Set(species.map(s => s.name));
+  const lv = s => !s.min ? '?' : s.min === s.max ? s.min : `${s.min}-${s.max}`;
+  const pic = (p, alt) => p ? `<a href="trophies/${esc(p)}.webp"><img src="trophies/${esc(p)}-plate.webp" alt="${esc(alt)}" loading="lazy"></a>` : '<div class="ph">?</div>';
+  const tile = (p, alt, title, sub, text, locked) =>
+    `<div class="tile${locked ? ' locked' : ''}">${pic(p, alt)}<div class="t"><b>${title}</b>${sub ? `<small>${sub}</small>` : ''}${text ? `<p>${text}</p>` : ''}</div></div>`;
+  const bounties = species.filter(s => s.bounty);
+  const huntedKinds = species.filter(s => s.count).length;
+  const boarKills = D.kills.filter(k => k[3]).map(k => k[0]);
+  const epitaph = d => !d[6] ? 'Nobody saw it happen.' : boarNames.has(d[6]) ? `${esc(d[6])} won this round.` : `Last seen fighting ${esc(d[6])}.`;
+  const place = d => [d[2], d[3]].filter(Boolean).map(esc).join(', ') + (d[4] != null ? ` (${(d[4] * 100).toFixed(1)}, ${(d[5] * 100).toFixed(1)})` : '');
+
+  app.innerHTML = `
+    ${D.demo ? '<div class="demo">Sample data. Run relay.py and /reload in game to see your own run.</div>' : ''}
+    <h1>${num(D.boars)} boars</h1>
+    <p class="sub">${esc(D.char)}, level ${D.level} of 60. One rule: kill nothing but boars.</p>
+    <span class="vow ${broken ? 'broken' : 'ok'}">${broken ? `Vow broken ${broken}×` : 'Vow intact'}</span>
+
+    <section class="card">
+      <h2>The road to 60</h2>
+      <div class="track"><i style="width:${(toGo * 100).toFixed(2)}%;background:var(--boar)"></i></div>
+      <div class="axis"><span>1</span><span>${Math.round(toGo * 100)}% of the way</span><span>60</span></div>
+      <div class="grid" style="margin-top:16px">
+        <div class="stat"><b>${dur(D.played)}</b><span>played</span></div>
+        <div class="stat"><b>${num(D.glory)}</b><span>boars that gave XP</span></div>
+        <div class="stat"><b>${D.deaths.length}</b><span>deaths</span></div>
+        <div class="stat"><b>${when(D.lastSeen)}</b><span>last seen</span></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Where the XP came from</h2>
+      <div class="track">
+        <i style="width:${pct(x.boars)};background:var(--boar)"></i>
+        <i style="width:${pct(x.quests)};background:var(--quest)"></i>
+        <i style="width:${pct(x.other)};background:var(--other)"></i>
+        <i style="width:${pct(x.otherKills)};background:var(--bad)"></i>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--boar)"></i>Boars ${num(x.boars)} (${pct(x.boars)})</span>
+        <span><i style="background:var(--quest)"></i>Quests ${num(x.quests)} (${pct(x.quests)})</span>
+        <span><i style="background:var(--other)"></i>Exploring & other ${num(x.other)} (${pct(x.other)})</span>
+        ${x.otherKills ? `<span><i style="background:var(--bad)"></i>Forbidden kills ${num(x.otherKills)}</span>` : ''}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Boars per level</h2>
+      <div class="bars">${Array.from({ length: 60 }, (_, i) => {
+        const l = perLevel[i + 1];
+        return l ? `<div style="height:${100 * l.boars / maxBoars}%" title="Level ${i + 1}: ${l.boars} boars, ${dur(l.seconds)}"></div>`
+                 : `<div class="future" title="Level ${i + 1}"></div>`;
+      }).join('')}</div>
+      <div class="axis"><span>1</span><span>20</span><span>40</span><span>60</span></div>
+      <details style="margin-top:12px"><summary>Every level in a table</summary>
+        <div class="scroll"><table>
+          <tr><th>Level</th><th>Reached</th><th class="n">Boars</th><th class="n">Boar XP</th><th class="n">Quests</th><th class="n">Deaths</th><th class="n">Time</th></tr>
+          ${D.levels.slice().reverse().map(l => `<tr><td>${l.level}</td><td>${when(l.reached)}</td><td class="n">${l.boars}</td><td class="n">${num(l.boarXp)}</td><td class="n">${l.quests}</td><td class="n">${l.deaths}</td><td class="n">${dur(l.seconds)}</td></tr>`).join('')}
+        </table></div>
+      </details>
+    </section>
+
+    <section class="card">
+      <h2>Notable bounties</h2>
+      <h3>Milestones</h3>
+      <div class="tiles">
+        ${milestones.map(m => tile(m.pic, m.name, `Boar #${num(m.n)}`, `${when(m.t)} · level ${m.level ?? '?'}`,
+            esc(m.name) + (m.named ? `, named “${esc(m.named)}” by ${esc(m.by)}` : '') + (m.zone ? ` in ${esc(m.zone)}` : ''))).join('')}
+        ${D.nextMilestone ? tile(null, '', `Boar #${num(D.nextMilestone)}`, `${num(D.nextMilestone - D.boars)} to go`, '', true) : ''}
+      </div>
+      <h3>Wanted</h3>
+      <div class="tiles">
+        ${bounties.map(s => s.first
+          ? tile(s.first.pic, s.name, esc(s.name), `Brought in ${when(s.first.t)} · level ${s.first.level ?? '?'}${s.count > 1 ? ` · ${s.count}×` : ''}`, esc(s.bounty))
+          : tile(null, '', esc(s.name), `Still at large · level ${lv(s)}${s.elite ? ' ' + s.elite : ''}`, esc(s.bounty), true)).join('')}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Bestiary: ${huntedKinds} of ${species.length} kinds hunted</h2>
+      <div class="scroll"><table>
+        <tr><th>Boar</th><th class="n">Lvl</th><th>Where</th><th class="n">Hunted</th><th>First</th></tr>
+        ${species.map(s => `<tr class="${s.count ? '' : 'unhunted'}"><td>${esc(s.name)}${s.elite ? ` <small>(${s.elite})</small>` : ''}</td><td class="n">${lv(s)}</td><td>${esc(s.zone || 'unknown')}${s.only ? ` <small>(${s.only} only)</small>` : ''}</td><td class="n">${s.count || '–'}</td><td>${s.first ? when(s.first.t) : ''}</td></tr>`).join('')}
+      </table></div>
+    </section>
+
+    <section class="card">
+      <h2>Kill ledger</h2>
+      <div class="scroll"><table>
+        <tr><th>#</th><th>When</th><th>Kill</th><th class="n">Lvl</th><th class="n">XP</th><th>Zone</th></tr>
+        ${recent.map((k, i) => `<tr class="${k[3] ? '' : 'bad'}"><td>${D.kills.length - i}</td><td>${when(k[0])}</td><td>${esc(k[1])}${k[3] ? '' : ' (not a boar)'}</td><td class="n">${k[4] ?? ''}</td><td class="n">${k[2] || '–'}</td><td>${esc(k[5])}</td></tr>`).join('') || '<tr><td colspan="6">The hunt hasn\'t started.</td></tr>'}
+      </table></div>
+    </section>
+
+    <section class="card">
+      <h2>Hunter down</h2>
+      ${D.deaths.length ? `<div class="tiles">${D.deaths.map((d, i) => [d, i]).reverse().map(([d, i]) => {
+        const into = boarKills.filter(t => t < d[0]).length, prev = i ? D.deaths[i - 1][0] : D.started;
+        return tile(d[7], `Death ${i + 1}`, `Death #${i + 1}`, `${when(d[0])} · level ${d[1] ?? '?'}`,
+          `${place(d) || 'Somewhere unknown'}<br>${epitaph(d)}<br><small>${num(into)} boars into the hunt${prev ? ` · ${dur(d[0] - prev)} after the ${i ? 'last death' : 'start'}` : ''}</small>`);
+      }).join('')}</div>` : '<p class="sub">None. Yet.</p>'}
+    </section>
+
+    <div class="two">
+      <section class="card">
+        <h2>Broken vows</h2>
+        ${broken ? `<table>${D.breaks.map(b => `<tr class="bad"><td>${when(b[0])}</td><td>${esc(b[1])}</td><td>${esc(b[3])}</td></tr>`).join('')}</table>` : '<p class="sub">Nothing but boars.</p>'}
+      </section>
+      <section class="card">
+        <h2>Hunting grounds</h2>
+        <table>${D.zones.map(([n, c]) => `<tr><td>${esc(n)}</td><td class="n">${c}</td></tr>`).join('') || '<tr><td>Nowhere yet.</td></tr>'}</table>
+      </section>
+    </div>
+
+    <footer>Updated ${when(D.updated)}. Numbers come from the game and change when it saves.</footer>`;
+}
+</script>
+</body>
+</html>
