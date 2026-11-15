@@ -61,6 +61,8 @@
   .tile p { margin: 6px 0 0; font-size: .92rem; }
   .tile.locked { opacity: .6; }
   tr.unhunted td { color: var(--muted); }
+  .tiles.clips { grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); }
+  .tile video { display: block; width: 100%; aspect-ratio: 9 / 16; background: #000; }
 </style>
 </head>
 <body>
@@ -113,6 +115,14 @@ if (!D) {
         <div class="stat"><b>${when(D.lastSeen)}</b><span>last seen</span></div>
       </div>
     </section>
+
+    ${(D.clips || []).length ? `<section class="card">
+      <h2>Sessions</h2>
+      <div class="tiles clips">${D.clips.slice().reverse().map(c => `<div class="tile">
+        <video src="${esc(c.src)}#t=0.1" controls playsinline preload="metadata"></video>
+        <div class="t"><b>Session ${c.n}</b><small>${when(c.t)} · ${dur(c.len)}</small><p>+${num(c.boars)} boar${c.boars === 1 ? '' : 's'}</p></div>
+      </div>`).join('')}</div>
+    </section>` : ''}
 
     <section class="card">
       <h2>Where the XP came from</h2>
